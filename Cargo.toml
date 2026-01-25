@@ -7,7 +7,7 @@ members = [
     "crates/chin-tools",
     "crates/chin-wayland-utils",
     "crates/chin-terminal-utils",
-    "crates/actor-sqlite",
+    "crates/actor-sqlite", "chin-enums",
 ]
 resolver = "3"
 
