@@ -130,7 +130,7 @@ impl<'a> SqlBuilder<'a> {
                 OrderBy::None => unreachable!(),
             })
             .collect();
-        self.seg(orders.join(", "))
+        self.seg(" order by ").seg(orders.join(", "))
     }
 
     pub fn merge<SB: Into<SqlBuilder<'a>>>(mut self, other: SB) -> Self {
