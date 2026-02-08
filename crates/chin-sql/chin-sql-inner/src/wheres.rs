@@ -67,6 +67,25 @@ pub enum Wheres<'a> {
 }
 
 impl<'a> Wheres<'a> {
+    pub fn empty(&self) -> bool {
+        match self {
+            Wheres::Conj(_where_conj_op, items) => {
+                items.is_empty() || items.iter().all(|e| e.empty())
+            }
+            Wheres::In(_cow, sql_values) => sql_values.is_empty(),
+            Wheres::Not(wheres) => wheres.empty(),
+            Wheres::Compare {
+                key,
+                operator: _,
+                value: _,
+            } => key.is_empty(),
+            Wheres::Raw(cow) => cow.is_empty(),
+            Wheres::SOV(seg_or_vals) => seg_or_vals.is_empty(),
+            Wheres::IIike { key, value: _ } => key.is_empty(),
+            Wheres::None => true,
+        }
+    }
+
     pub fn equal<T: Into<SqlValue<'a>>, S: Into<Cow<'a, str>>>(key: S, v: T) -> Self {
         Self::Compare {
             key: key.into(),
