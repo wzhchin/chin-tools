@@ -53,7 +53,7 @@ pub mod from_sql {
         }
     }
 
-        impl<'a, const LIMIT: usize> FromSql<'a> for Varchar<LIMIT> {
+    impl<'a, const LIMIT: usize> FromSql<'a> for Varchar<LIMIT> {
         fn from_sql(
             ty: &postgres_types::Type,
             raw: &'a [u8],

@@ -22,8 +22,7 @@ impl TryFrom<PoolConfig> for ActorSqlitePool {
 
         for i in 0..config.pool_size.unwrap_or(1) {
             log::info!("creating initial worker-{i}");
-            config.clone()
-                .spawn(worker_rx.clone())?;
+            config.clone().spawn(worker_rx.clone())?;
         }
         let inner = InnerActorSqlitePool {
             worker_tx,

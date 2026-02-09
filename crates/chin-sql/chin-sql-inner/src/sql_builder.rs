@@ -1,10 +1,6 @@
-use std::{borrow::Cow, ops::Deref};
+use std::borrow::Cow;
 
-use chin_tools_types::SharedStr;
-
-use crate::{
-    ChinSqlError, DbType, IntoSqlSeg, SegOrVal, SqlField, SqlSeg, SqlTable, SqlTypedField,
-};
+use crate::{ChinSqlError, DbType, IntoSqlSeg, SegOrVal, SqlField, SqlSeg, SqlTypedField};
 
 use super::{place_hoder::PlaceHolderType, sql_value::SqlValue, wheres::Wheres};
 
@@ -313,11 +309,8 @@ impl<'a> Joins<'a> {
 
     pub fn join<T: Into<Option<JoinTable<'a>>>>(mut self, table: T) -> Self {
         let jt = table.into();
-        match jt {
-            Some(jt) => {
-                self.joins.push(jt);
-            }
-            None => {}
+        if let Some(jt) = jt {
+            self.joins.push(jt);
         }
         self
     }
@@ -562,7 +555,7 @@ impl<'a> From<SqlReader<'a>> for SqlBuilder<'a> {
                             OrderBy::None => None,
                         })
                         .collect();
-                    if c.len() > 0 {
+                    if !c.is_empty() {
                         this.seg("order by").seg(c.join(", "))
                     } else {
                         this

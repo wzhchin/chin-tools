@@ -21,7 +21,10 @@ impl ActorSqliteConnClient {
 
     pub async fn execute<S: Into<String>>(&self, sql: S, params: SqlValueVec) -> Result<usize> {
         match self
-            .inner(ConnCmdReq::Command(CmdReq::Exec { sql: sql.into(), params }))
+            .inner(ConnCmdReq::Command(CmdReq::Exec {
+                sql: sql.into(),
+                params,
+            }))
             .await?
         {
             ConnCmdRsp::Cmd(CmdResult::Exec(count)) => Ok(count),
@@ -31,9 +34,16 @@ impl ActorSqliteConnClient {
         }
     }
 
-    pub async fn query<S: Into<String>>(&self, sql: S, params: SqlValueVec) -> Result<Vec<ActorSqliteRow>> {
+    pub async fn query<S: Into<String>>(
+        &self,
+        sql: S,
+        params: SqlValueVec,
+    ) -> Result<Vec<ActorSqliteRow>> {
         match self
-            .inner(ConnCmdReq::Command(CmdReq::QueryMap { sql: sql.into(), params }))
+            .inner(ConnCmdReq::Command(CmdReq::QueryMap {
+                sql: sql.into(),
+                params,
+            }))
             .await?
         {
             ConnCmdRsp::Cmd(CmdResult::QueryMap(res)) => Ok(res),

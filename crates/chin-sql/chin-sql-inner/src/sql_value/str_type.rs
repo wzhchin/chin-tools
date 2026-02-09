@@ -1,4 +1,3 @@
-
 use std::fmt::Display;
 
 use chin_tools_types::SharedStr;
@@ -150,4 +149,3 @@ impl<'a, const LIMIT: usize> TryFrom<SqlValue<'a>> for Varchar<LIMIT> {
         }
     }
 }
-

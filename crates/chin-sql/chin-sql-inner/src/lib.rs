@@ -6,8 +6,8 @@ mod sql_deleter;
 mod sql_inserter;
 mod sql_updater;
 mod sql_value;
-mod wheres;
 mod tablefield;
+mod wheres;
 
 pub use create_table::*;
 pub use db_type::*;
@@ -17,8 +17,8 @@ pub use sql_deleter::*;
 pub use sql_inserter::*;
 pub use sql_updater::*;
 pub use sql_value::*;
-pub use wheres::*;
 pub use tablefield::*;
+pub use wheres::*;
 
 use thiserror::Error;
 
@@ -52,8 +52,6 @@ pub trait IntoSqlSeg<'a>: Send {
         pht: &mut PlaceHolderType,
     ) -> Result<SqlSeg<'a>, ChinSqlError>;
 }
-
-
 
 impl<'a> IntoSqlSeg<'a> for SqlSeg<'a> {
     fn into_sql_seg2(self, _: DbType, _: &mut PlaceHolderType) -> Result<SqlSeg<'a>, ChinSqlError> {

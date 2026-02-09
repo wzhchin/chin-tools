@@ -27,7 +27,7 @@ pub(crate) struct FieldInfo {
     pub not_null: bool,
     pub key_map: HashMap<String, (bool, KeyOrder)>, // key_name(lower), unique?, keyorder
     pub pkey: Option<KeyOrder>,
-    pub to_sql_func: Option<String>
+    pub to_sql_func: Option<String>,
 }
 
 pub(crate) fn parse_field_info(field: &Field) -> Result<FieldInfo, syn::Error> {
@@ -67,7 +67,7 @@ pub(crate) fn parse_field_info(field: &Field) -> Result<FieldInfo, syn::Error> {
         not_null,
         key_map,
         pkey,
-        to_sql_func
+        to_sql_func,
     })
 }
 
@@ -111,10 +111,7 @@ fn parse_field_type(
                 if rt.starts_with("Varchar<") && rt.ends_with(">") {
                     let text = &rt[8..(rt.len() - 1)];
                     let bound = text.parse::<u16>().map_err(|err| {
-                        syn::Error::new(
-                            field.span(),
-                            format!("{text} in `{rt}` is illegal, {err}"),
-                        )
+                        syn::Error::new(field.span(), format!("{text} in `{rt}` is illegal, {err}"))
                     })?;
                     chin_sql::LogicFieldType::Varchar(bound)
                 } else {
@@ -156,21 +153,21 @@ pub(crate) fn find_attr_key(
 
         let meta = &attr.meta;
         if let syn::Meta::NameValue(name_value) = meta {
-            if let syn::Expr::Lit(lit) = &name_value.value {
-                if let syn::Lit::Str(lit_str) = &lit.lit {
-                    let value = lit_str.value();
-                    let cs: Vec<&str> = value.split(":").collect();
-                    let key = cs.first().unwrap().to_lowercase();
-                    let order = cs
-                        .get(1)
-                        .map(|e| e.parse::<u16>().map(KeyOrder::Num))
-                        .unwrap_or(Ok(KeyOrder::Default))
-                        .map_err(|_| {
-                            syn::Error::new(field.span(), "form should look like key_name[:0]")
-                        })?;
+            if let syn::Expr::Lit(lit) = &name_value.value
+                && let syn::Lit::Str(lit_str) = &lit.lit
+            {
+                let value = lit_str.value();
+                let cs: Vec<&str> = value.split(":").collect();
+                let key = cs.first().unwrap().to_lowercase();
+                let order = cs
+                    .get(1)
+                    .map(|e| e.parse::<u16>().map(KeyOrder::Num))
+                    .unwrap_or(Ok(KeyOrder::Default))
+                    .map_err(|_| {
+                        syn::Error::new(field.span(), "form should look like key_name[:0]")
+                    })?;
 
-                    map.insert(key, (unique, order));
-                }
+                map.insert(key, (unique, order));
             }
         } else {
             map.insert(column_name.to_owned(), (unique, KeyOrder::Default));
@@ -185,10 +182,10 @@ fn find_pkey(field: &Field) -> Result<Option<KeyOrder>, syn::Error> {
         if attr.path().is_ident("gts_primary") {
             let meta = &attr.meta;
             if let syn::Meta::NameValue(name_value) = meta {
-                if let syn::Expr::Lit(lit) = &name_value.value {
-                    if let syn::Lit::Int(lit_int) = &lit.lit {
-                        return Ok(Some(KeyOrder::Num(lit_int.base10_parse()?)));
-                    }
+                if let syn::Expr::Lit(lit) = &name_value.value
+                    && let syn::Lit::Int(lit_int) = &lit.lit
+                {
+                    return Ok(Some(KeyOrder::Num(lit_int.base10_parse()?)));
                 }
             } else {
                 return Ok(Some(KeyOrder::Default));
@@ -204,10 +201,10 @@ fn find_to_sql_func(field: &Field) -> Result<Option<String>, syn::Error> {
         if attr.path().is_ident("gts_tosql") {
             let meta = &attr.meta;
             if let syn::Meta::NameValue(name_value) = meta {
-                if let syn::Expr::Lit(lit) = &name_value.value {
-                    if let syn::Lit::Str(s) = &lit.lit {
-                        return Ok(Some(s.value()));
-                    }
+                if let syn::Expr::Lit(lit) = &name_value.value
+                    && let syn::Lit::Str(s) = &lit.lit
+                {
+                    return Ok(Some(s.value()));
                 }
             } else {
                 return Ok(None);
@@ -224,12 +221,11 @@ fn find_attr_alias_type(field: &Field) -> Option<Result<String, syn::Error>> {
         if attr.path().is_ident("gts_type") {
             flag = true;
             let meta = &attr.meta;
-            if let syn::Meta::NameValue(name_value) = meta {
-                if let syn::Expr::Lit(lit_int) = &name_value.value {
-                    if let syn::Lit::Str(lit_int) = &lit_int.lit {
-                        return Some(Ok(lit_int.to_token_stream().to_string()));
-                    }
-                }
+            if let syn::Meta::NameValue(name_value) = meta
+                && let syn::Expr::Lit(lit_int) = &name_value.value
+                && let syn::Lit::Str(lit_int) = &lit_int.lit
+            {
+                return Some(Ok(lit_int.to_token_stream().to_string()));
             }
         }
     }

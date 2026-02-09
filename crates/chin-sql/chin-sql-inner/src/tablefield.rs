@@ -41,10 +41,10 @@ impl<'a, T> SqlTypedField<'a, T> {
         Self {
             field: SqlField {
                 alias: None,
-                table_alias: table_alias,
-                field_name: field_name,
+                table_alias,
+                field_name,
             },
-            value_type: PhantomData::default(),
+            value_type: PhantomData,
         }
     }
 

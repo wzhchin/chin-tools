@@ -1,8 +1,8 @@
 pub mod client;
 mod model;
 pub mod pool;
-mod worker;
 pub mod pool_config;
+mod worker;
 
 use std::error::Error;
 
@@ -22,7 +22,6 @@ pub enum ActorSqlError {
     ActorError(Box<dyn Error + Send + Sync>),
     #[error("Actor Sqlite Error ({1}) {0}")]
     ActorErrorWithDesc(Box<dyn Error + Send + Sync>, String),
-
 }
 
 type Result<T> = std::result::Result<T, ActorSqlError>;

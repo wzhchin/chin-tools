@@ -1,8 +1,4 @@
-use std::{
-    borrow::Cow,
-    fmt::{Display, Write},
-    ops::Deref,
-};
+use std::{borrow::Cow, fmt::Display, ops::Deref};
 
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
@@ -48,9 +44,9 @@ impl AsRef<[u8]> for SharedStr {
     }
 }
 
-impl<'a> Into<Cow<'a, str>> for &'a SharedStr {
-    fn into(self) -> Cow<'a, str> {
-        Cow::Borrowed(&self)
+impl<'a> From<&'a SharedStr> for Cow<'a, str> {
+    fn from(val: &'a SharedStr) -> Self {
+        Cow::Borrowed(val)
     }
 }
 

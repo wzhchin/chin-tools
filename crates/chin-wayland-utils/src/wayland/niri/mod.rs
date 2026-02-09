@@ -117,18 +117,17 @@ impl NiriCompositor {
             self.windows.insert(win.get_id(), win.clone());
             events.push(WLEvent::WindowOverwrite(win));
         }
-        if let Some(id) = new_win {
-            if let Some(win) = self.windows.get(&id) {
-                if !win.is_focused {
-                    let win = NiriWindowWrapper(NiriWindow {
-                        is_focused: true,
-                        ..win.0.clone()
-                    });
-                    self.windows.insert(id, win.clone());
-                    events.push(WLEvent::WindowOverwrite(win));
-                }
-            };
-        }
+        if let Some(id) = new_win
+            && let Some(win) = self.windows.get(&id)
+            && !win.is_focused
+        {
+            let win = NiriWindowWrapper(NiriWindow {
+                is_focused: true,
+                ..win.0.clone()
+            });
+            self.windows.insert(id, win.clone());
+            events.push(WLEvent::WindowOverwrite(win));
+        };
 
         events
     }
@@ -230,7 +229,11 @@ impl NiriCompositor {
                         events.push(WLEvent::WindowOverwrite(event_win));
                     }
                 }
-                if events.len() > 0 { Some(events) } else { None }
+                if !events.is_empty() {
+                    Some(events)
+                } else {
+                    None
+                }
             }
             _ => None,
         };
