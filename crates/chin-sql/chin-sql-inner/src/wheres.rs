@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::{DbType, PlaceHolderType, SegOrVal, SqlSeg};
+use crate::{DbType, PlaceHolderType, SqlSeg};
 
 use super::sql_value::SqlValue;
 
@@ -58,7 +58,7 @@ pub enum Wheres<'a> {
         value: SqlValue<'a>,
     }, // key, operator, value
     Raw(Cow<'a, str>),
-    SOV(Vec<SegOrVal<'a>>),
+    Val(SqlValue<'a>),
     IIike {
         key: Cow<'a, str>,
         value: String,
@@ -80,9 +80,9 @@ impl<'a> Wheres<'a> {
                 value: _,
             } => key.is_empty(),
             Wheres::Raw(cow) => cow.is_empty(),
-            Wheres::SOV(seg_or_vals) => seg_or_vals.is_empty(),
             Wheres::IIike { key, value: _ } => key.is_empty(),
             Wheres::None => true,
+            Wheres::Val(_) => false,
         }
     }
 
@@ -252,19 +252,6 @@ impl<'a> Wheres<'a> {
 
                 seg.push(' ');
             }
-            Wheres::SOV(seg_or_vals) => {
-                for sov in seg_or_vals {
-                    match sov {
-                        SegOrVal::Str(cow) => {
-                            seg.push_str(&cow);
-                        }
-                        SegOrVal::Val(sql_value) => {
-                            seg.push_str(&value_type.next_ph());
-                            values.push(sql_value);
-                        }
-                    }
-                }
-            }
             Wheres::IIike { key, value } => {
                 let ilike = match db_type {
                     DbType::Sqlite => Self::Compare {
@@ -284,6 +271,7 @@ impl<'a> Wheres<'a> {
                     values.extend(v);
                 }
             }
+            Wheres::Val(sql_value) => values.push(sql_value),
         }
 
         Some(SqlSeg::of(seg, values))

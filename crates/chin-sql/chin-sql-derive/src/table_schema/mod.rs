@@ -60,9 +60,9 @@ pub(crate) fn generate_table_schema(input: TokenStream) -> TokenStream {
             pub alias: &'a str
         }
 
-        impl<'a> chin_sql::SqlTable<'a> for #table_struct_ident<'a> {
-                fn table_expr(&self) -> chin_sql::SqlBuilder<'a> {
-                    #table_name.into()
+        impl<'a> chin_sql::SqlPlainTable<'a> for #table_struct_ident<'a> {
+                fn table_name(&self) -> &'static str {
+                    #table_name
                 }
 
                 fn alias(&self) -> &'a str {

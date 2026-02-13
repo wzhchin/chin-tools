@@ -11,6 +11,11 @@ pub trait SqlTable<'a> {
     fn alias(&self) -> &'a str;
 }
 
+pub trait SqlPlainTable<'a> {
+    fn table_name(&self) -> &'static str;
+    fn alias(&self) -> &'a str;
+}
+
 #[derive(Clone, Debug)]
 pub struct SqlField<'a> {
     pub alias: Option<&'a str>,
@@ -21,6 +26,12 @@ pub struct SqlField<'a> {
 pub struct SqlTypedField<'a, T> {
     field: SqlField<'a>,
     value_type: PhantomData<T>,
+}
+
+impl<'a, T> From<&SqlTypedField<'a, T>> for SqlField<'a> {
+    fn from(value: &SqlTypedField<'a, T>) -> Self {
+        value.field.clone()
+    }
 }
 
 impl<'a, T> Deref for SqlTypedField<'a, T> {

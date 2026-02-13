@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::{ChinSqlError, DbType, IntoSqlSeg, SegOrVal, SqlField, SqlSeg, SqlTypedField};
+use crate::{ChinSqlError, DbType, IntoSqlSeg, SqlField, SqlPlainTable, SqlSeg, SqlTypedField};
 
 use super::{place_hoder::PlaceHolderType, sql_value::SqlValue, wheres::Wheres};
 
@@ -9,16 +9,16 @@ pub trait CustomSqlSeg<'a>: Send {
 }
 
 enum SqlBuilderSeg<'a> {
-    Where(Wheres<'a>),
-    LimitOffset(LimitOffset),
     Comma(Vec<&'a str>),
-    SegOrVal(SegOrVal<'a>),
-    RawOwned(String),
+    Str(Cow<'a, str>),
+    Val(SqlValue<'a>),
     Custom(Box<dyn CustomSqlSeg<'a>>),
     Sub {
         alias: &'a str,
         query: SqlBuilder<'a>,
     },
+    Where(Wheres<'a>),
+    LimitOffset(LimitOffset),
 }
 
 pub struct SqlBuilder<'a> {
@@ -38,31 +38,27 @@ impl<'a> SqlBuilder<'a> {
 
     pub fn read(table_name: &str, fields: &[&str]) -> Self {
         Self {
-            segs: vec![SqlBuilderSeg::RawOwned(format!(
-                "select {} from {} ",
-                fields.join(", "),
-                table_name
-            ))],
+            segs: vec![SqlBuilderSeg::Str(
+                format!("select {} from {} ", fields.join(", "), table_name).into(),
+            )],
         }
     }
 
     pub fn read_all(table_name: &str) -> Self {
         Self {
-            segs: vec![SqlBuilderSeg::RawOwned(format!(
-                "select * from {table_name} "
-            ))],
+            segs: vec![SqlBuilderSeg::Str(
+                format!("select * from {table_name} ").into(),
+            )],
         }
     }
 
     pub fn val<T: Into<SqlValue<'a>>>(mut self, val: T) -> Self {
-        self.segs
-            .push(SqlBuilderSeg::SegOrVal(SegOrVal::Val(val.into())));
+        self.segs.push(SqlBuilderSeg::Val(val.into()));
         self
     }
 
     pub fn seg<T: Into<Cow<'a, str>>>(mut self, seg: T) -> Self {
-        self.segs
-            .push(SqlBuilderSeg::SegOrVal(SegOrVal::Str(seg.into())));
+        self.segs.push(SqlBuilderSeg::Str(seg.into()));
         self
     }
 
@@ -225,20 +221,15 @@ impl<'a> IntoSqlSeg<'a> for SqlBuilder<'a> {
                         values.extend(s.values);
                     }
                 }
-                SqlBuilderSeg::RawOwned(raw) => {
-                    sb.push_str(raw.as_str());
+                SqlBuilderSeg::Str(s) => {
+                    sb.push_str(&s);
+                    sb.push(' ');
                 }
-                SqlBuilderSeg::SegOrVal(sql_seg) => match sql_seg {
-                    SegOrVal::Str(s) => {
-                        sb.push_str(&s);
-                        sb.push(' ');
-                    }
-                    SegOrVal::Val(val) => {
-                        sb.push_str(&pht.next_ph());
-                        sb.push(' ');
-                        values.push(val);
-                    }
-                },
+                SqlBuilderSeg::Val(val) => {
+                    sb.push_str(&pht.next_ph());
+                    sb.push(' ');
+                    values.push(val);
+                }
                 SqlBuilderSeg::LimitOffset(limit_offset) => {
                     let SqlSeg { seg, values: vs } =
                         limit_offset.build(pht).ok_or(ChinSqlError::TransformError(
@@ -260,7 +251,7 @@ impl<'a> IntoSqlSeg<'a> for SqlBuilder<'a> {
 impl<'a> From<&'a str> for SqlBuilder<'a> {
     fn from(value: &'a str) -> Self {
         Self {
-            segs: vec![SqlBuilderSeg::SegOrVal(value.into())],
+            segs: vec![SqlBuilderSeg::Str(value.into())],
         }
     }
 }
@@ -393,10 +384,6 @@ pub enum Froms<'a> {
         alias: &'a str,
     },
     Joins(Box<Joins<'a>>),
-    Union {
-        table: Vec<SqlReader<'a>>,
-        alias: &'a str,
-    },
 }
 
 impl<'a> From<Joins<'a>> for Froms<'a> {
@@ -417,18 +404,18 @@ impl<'a> From<Froms<'a>> for SqlBuilder<'a> {
                 .seg(") as")
                 .seg(alias),
             Froms::Joins(joins) => (*joins).into(),
-            Froms::Union { table, alias } => {
-                let mut sb = SqlBuilder::new().seg("(");
-                let len = table.len();
-                for (id, f) in table.into_iter().enumerate() {
-                    sb = sb.merge(f);
+        }
+    }
+}
 
-                    if id < len - 1 {
-                        sb = sb.seg("union");
-                    }
-                }
-                sb.seg(") as ").seg(alias)
-            }
+impl<'a, T> From<T> for Froms<'a>
+where
+    T: SqlPlainTable<'a>,
+{
+    fn from(value: T) -> Self {
+        Self::Table {
+            table_name: value.table_name(),
+            alias: value.alias(),
         }
     }
 }
@@ -447,7 +434,12 @@ pub enum Having<'a> {
     None,
 }
 
-pub struct SqlReader<'a> {
+pub enum SqlReader<'a> {
+    Union(Vec<SqlReader<'a>>),
+    Single(SqlSingleReader<'a>),
+}
+
+pub struct SqlSingleReader<'a> {
     fields: Vec<SqlField<'a>>,
     froms: Froms<'a>,
     wheres: Wheres<'a>,
@@ -457,15 +449,17 @@ pub struct SqlReader<'a> {
     limit: Option<LimitOffset>,
 }
 
-impl<'a> SqlReader<'a> {
-    pub fn builder<V: Into<Vec<SqlField<'a>>>>(
-        fields: V,
-        froms: Froms<'a>,
-    ) -> SqlReaderBuilder<'a> {
+impl<'a> SqlSingleReader<'a> {
+    pub fn builder<V, T, R>(fields: V, froms: R) -> SqlReaderBuilder<'a>
+    where
+        T: Into<SqlField<'a>>,
+        V: Into<Vec<T>>,
+        R: Into<Froms<'a>>,
+    {
         SqlReaderBuilder {
-            reader: SqlReader {
-                fields: fields.into(),
-                froms,
+            reader: SqlSingleReader {
+                fields: fields.into().into_iter().map(|v| v.into()).collect(),
+                froms: froms.into(),
                 wheres: Wheres::None,
                 order_by: None,
                 limit: None,
@@ -482,7 +476,7 @@ impl<'a> SqlReader<'a> {
 }
 
 pub struct SqlReaderBuilder<'a> {
-    reader: SqlReader<'a>,
+    reader: SqlSingleReader<'a>,
 }
 
 impl<'a> SqlReaderBuilder<'a> {
@@ -511,13 +505,13 @@ impl<'a> SqlReaderBuilder<'a> {
         self
     }
 
-    pub fn build(self) -> SqlReader<'a> {
+    pub fn build(self) -> SqlSingleReader<'a> {
         self.reader
     }
 }
 
-impl<'a> From<SqlReader<'a>> for SqlBuilder<'a> {
-    fn from(value: SqlReader<'a>) -> Self {
+impl<'a> From<SqlSingleReader<'a>> for SqlBuilder<'a> {
+    fn from(value: SqlSingleReader<'a>) -> Self {
         let select = value
             .fields
             .iter()
@@ -570,7 +564,7 @@ impl<'a> From<SqlReader<'a>> for SqlBuilder<'a> {
     }
 }
 
-impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
+impl<'a> IntoSqlSeg<'a> for SqlSingleReader<'a> {
     fn into_sql_seg2(
         self,
         db_type: DbType,
@@ -581,6 +575,52 @@ impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
     }
 }
 
+impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
+    fn into_sql_seg2(
+        self,
+        db_type: DbType,
+        pht: &mut PlaceHolderType,
+    ) -> Result<SqlSeg<'a>, ChinSqlError> {
+        match self {
+            SqlReader::Union(sql_readers) => {
+                let mut values = vec![];
+                let mut segs = vec![];
+                for sr in sql_readers {
+                    let ss = sr.into_sql_seg2(db_type, pht)?;
+                    segs.push(ss.seg);
+                    values.extend(ss.values);
+                }
+                Ok(SqlSeg {
+                    seg: segs.join(" union "),
+                    values,
+                })
+            }
+            SqlReader::Single(sql_reader) => sql_reader.into_sql_seg2(db_type, pht),
+        }
+    }
+}
+
 pub struct SubQueryTable<'a> {
-    pub reader: SqlReader<'a>,
+    pub reader: SqlSingleReader<'a>,
+}
+
+impl<'a> From<SqlReader<'a>> for SqlBuilder<'a> {
+    fn from(value: SqlReader<'a>) -> Self {
+        match value {
+            SqlReader::Union(sql_readers) => {
+                let mut sql_builder = SqlBuilder::new();
+                let mut union = false;
+                for fr in sql_readers {
+                    if union {
+                        sql_builder = sql_builder.seg("union")
+                    } else {
+                        union = true;
+                    }
+                    sql_builder = sql_builder.merge(fr);
+                }
+                sql_builder
+            }
+            SqlReader::Single(sql_single_reader) => sql_single_reader.into(),
+        }
+    }
 }
