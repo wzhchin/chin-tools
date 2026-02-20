@@ -1,6 +1,9 @@
 use std::borrow::Cow;
 
-use crate::{ChinSqlError, DbType, IntoSqlSeg, SqlField, SqlPlainTable, SqlSeg, SqlTypedField};
+use crate::{
+    ChinSqlError, DbType, IntoSqlSeg, SqlField, SqlFieldTrait, SqlFields, SqlSeg, SqlTable,
+    SqlTypedField,
+};
 
 use super::{place_hoder::PlaceHolderType, sql_value::SqlValue, wheres::Wheres};
 
@@ -272,10 +275,10 @@ pub struct JoinCond<'a> {
 impl<'a, T> From<(SqlTypedField<'a, T>, SqlTypedField<'a, T>)> for JoinCond<'a> {
     fn from(value: (SqlTypedField<'a, T>, SqlTypedField<'a, T>)) -> Self {
         JoinCond {
-            l_table: value.0.table_alias,
-            l_field: value.0.field_name,
-            r_table: value.1.table_alias,
-            r_field: value.1.field_name,
+            l_table: value.0.table_alias(),
+            l_field: value.0.field_name(),
+            r_table: value.1.table_alias(),
+            r_field: value.1.field_name(),
         }
     }
 }
@@ -321,11 +324,11 @@ impl<'a> Joins<'a> {
     }
 }
 
-impl<'a> From<Joins<'a>> for SqlBuilder<'a> {
-    fn from(value: Joins<'a>) -> Self {
+impl<'a> From<&Joins<'a>> for SqlBuilder<'a> {
+    fn from(value: &Joins<'a>) -> Self {
         let mut sql_builder = SqlBuilder::new();
-        sql_builder = sql_builder.merge(value.base);
-        for table in value.joins {
+        sql_builder = sql_builder.merge(&value.base);
+        for table in &value.joins {
             let JoinTable {
                 join_type,
                 table,
@@ -343,7 +346,7 @@ impl<'a> From<Joins<'a>> for SqlBuilder<'a> {
                     sql_builder = sql_builder.seg("right join");
                 }
             };
-            sql_builder = sql_builder.merge(table).seg("on");
+            sql_builder = sql_builder.merge(&*table).seg("on");
             let cond_len = conds.len();
             for (i, join_cond) in conds.into_iter().enumerate() {
                 sql_builder = sql_builder
@@ -377,7 +380,7 @@ impl<'a> Fields<'a> for String {
 pub enum Froms<'a> {
     Table {
         table_name: &'a str,
-        alias: &'a str,
+        alias: Option<&'a str>,
     },
     SubQuery {
         table: Box<SqlReader<'a>>,
@@ -386,36 +389,51 @@ pub enum Froms<'a> {
     Joins(Box<Joins<'a>>),
 }
 
+impl<'a> From<&'a str> for Froms<'a> {
+    fn from(value: &'a str) -> Self {
+        Self::Table {
+            table_name: value,
+            alias: None,
+        }
+    }
+}
+
 impl<'a> From<Joins<'a>> for Froms<'a> {
     fn from(value: Joins<'a>) -> Self {
         Self::Joins(Box::new(value))
     }
 }
 
-impl<'a> From<Froms<'a>> for SqlBuilder<'a> {
-    fn from(value: Froms<'a>) -> Self {
+impl<'a> From<&Froms<'a>> for SqlBuilder<'a> {
+    fn from(value: &Froms<'a>) -> Self {
         match value {
-            Froms::Table { table_name, alias } => {
-                SqlBuilder::new().seg(table_name).seg("as").seg(alias)
-            }
+            Froms::Table { table_name, alias } => SqlBuilder::new()
+                .seg(*table_name)
+                .some_then(*alias, |e, v| v.seg("as").seg(e)),
             Froms::SubQuery { table, alias } => SqlBuilder::new()
                 .seg("(")
-                .merge(*table)
+                .merge(&*(*table))
                 .seg(") as")
-                .seg(alias),
-            Froms::Joins(joins) => (*joins).into(),
+                .seg(*alias),
+            Froms::Joins(joins) => (&**joins).into(),
         }
     }
 }
 
-impl<'a, T> From<T> for Froms<'a>
+impl<'a, T> From<&T> for Froms<'a>
 where
-    T: SqlPlainTable<'a>,
+    T: SqlTable<'a>,
 {
-    fn from(value: T) -> Self {
-        Self::Table {
-            table_name: value.table_name(),
-            alias: value.alias(),
+    fn from(value: &T) -> Self {
+        match value.table_expr() {
+            crate::SqlTableExpr::Plain(plain) => Froms::Table {
+                table_name: plain,
+                alias: Some(value.alias()),
+            },
+            crate::SqlTableExpr::Expr(sql_reader) => Froms::SubQuery {
+                table: sql_reader.into(),
+                alias: value.alias(),
+            },
         }
     }
 }
@@ -440,7 +458,7 @@ pub enum SqlReader<'a> {
 }
 
 pub struct SqlSingleReader<'a> {
-    fields: Vec<SqlField<'a>>,
+    fields: SqlFields<'a>,
     froms: Froms<'a>,
     wheres: Wheres<'a>,
     group_by: GroupBy<'a>,
@@ -449,16 +467,15 @@ pub struct SqlSingleReader<'a> {
     limit: Option<LimitOffset>,
 }
 
-impl<'a> SqlSingleReader<'a> {
-    pub fn builder<V, T, R>(fields: V, froms: R) -> SqlReaderBuilder<'a>
+impl<'a> SqlReader<'a> {
+    pub fn read<V, R>(fields: V, froms: R) -> SqlReaderBuilder<'a>
     where
-        T: Into<SqlField<'a>>,
-        V: Into<Vec<T>>,
+        V: Into<SqlFields<'a>>,
         R: Into<Froms<'a>>,
     {
         SqlReaderBuilder {
             reader: SqlSingleReader {
-                fields: fields.into().into_iter().map(|v| v.into()).collect(),
+                fields: fields.into(),
                 froms: froms.into(),
                 wheres: Wheres::None,
                 order_by: None,
@@ -469,9 +486,32 @@ impl<'a> SqlSingleReader<'a> {
         }
     }
 
-    pub fn limit(mut self, limit: LimitOffset) -> Self {
-        self.limit.replace(limit);
-        self
+    pub fn limit(self, limit: LimitOffset) -> Self {
+        match self {
+            SqlReader::Union(sql_readers) => SqlReader::Single(SqlSingleReader {
+                fields: SqlFields(vec![SqlField {
+                    alias: None,
+                    inner: crate::SqlFieldInner::Plain {
+                        table_alias: "t",
+                        field_name: "*",
+                    }
+                    .into(),
+                }]),
+                froms: Froms::SubQuery {
+                    table: Box::new(SqlReader::Union(sql_readers)),
+                    alias: "t",
+                },
+                wheres: Wheres::None,
+                group_by: GroupBy::None,
+                having: Having::None,
+                order_by: None,
+                limit: Some(limit),
+            }),
+            SqlReader::Single(mut sql_single_reader) => {
+                sql_single_reader.limit.replace(limit);
+                SqlReader::Single(sql_single_reader)
+            }
+        }
     }
 }
 
@@ -508,19 +548,24 @@ impl<'a> SqlReaderBuilder<'a> {
     pub fn build(self) -> SqlSingleReader<'a> {
         self.reader
     }
+
+    pub fn build2(self) -> SqlReader<'a> {
+        SqlReader::Single(self.reader)
+    }
 }
 
-impl<'a> From<SqlSingleReader<'a>> for SqlBuilder<'a> {
-    fn from(value: SqlSingleReader<'a>) -> Self {
+impl<'a> From<&SqlSingleReader<'a>> for SqlBuilder<'a> {
+    fn from(value: &SqlSingleReader<'a>) -> Self {
         let select = value
             .fields
+            .0
             .iter()
             .map(|m| match m.alias {
                 Some(alias) => {
-                    format!("{}.{} as {}", m.table_alias, m.field_name, alias)
+                    format!("{}.{} as {}", m.table_alias(), m.field_name(), alias)
                 }
                 None => {
-                    format!("{}.{}", m.table_alias, m.field_name)
+                    format!("{}.{}", m.table_alias(), m.field_name())
                 }
             })
             .collect::<Vec<String>>()
@@ -529,17 +574,17 @@ impl<'a> From<SqlSingleReader<'a>> for SqlBuilder<'a> {
             .seg("select")
             .seg(select)
             .seg("from")
-            .merge(value.froms)
-            .r#where(value.wheres)
-            .transform(|this| match value.group_by {
+            .merge(&value.froms)
+            .r#where(value.wheres.clone())
+            .transform(|this| match &value.group_by {
                 GroupBy::Plain(cows) => this.seg("order by").seg(cows.join(", ")),
                 GroupBy::None => this,
             })
-            .transform(|this| match value.having {
-                Having::Custom(cow) => this.seg("having").seg(cow),
+            .transform(|this| match &value.having {
+                Having::Custom(cow) => this.seg("having").seg(cow.clone()),
                 Having::None => this,
             })
-            .transform(|this| match value.order_by {
+            .transform(|this| match &value.order_by {
                 Some(order_by) => {
                     let c: Vec<String> = order_by
                         .iter()
@@ -564,13 +609,20 @@ impl<'a> From<SqlSingleReader<'a>> for SqlBuilder<'a> {
     }
 }
 
+impl<'a> From<SqlSingleReader<'a>> for SqlReader<'a> {
+    fn from(value: SqlSingleReader<'a>) -> Self {
+        SqlReader::Single(value)
+    }
+}
+
 impl<'a> IntoSqlSeg<'a> for SqlSingleReader<'a> {
     fn into_sql_seg2(
         self,
         db_type: DbType,
         pht: &mut PlaceHolderType,
     ) -> Result<SqlSeg<'a>, ChinSqlError> {
-        let sb: SqlBuilder<'a> = self.into();
+        let sb: SqlReader<'a> = self.into();
+        let sb: SqlBuilder<'a> = (&sb).into();
         sb.into_sql_seg2(db_type, pht)
     }
 }
@@ -604,8 +656,8 @@ pub struct SubQueryTable<'a> {
     pub reader: SqlSingleReader<'a>,
 }
 
-impl<'a> From<SqlReader<'a>> for SqlBuilder<'a> {
-    fn from(value: SqlReader<'a>) -> Self {
+impl<'a> From<&SqlReader<'a>> for SqlBuilder<'a> {
+    fn from(value: &SqlReader<'a>) -> Self {
         match value {
             SqlReader::Union(sql_readers) => {
                 let mut sql_builder = SqlBuilder::new();

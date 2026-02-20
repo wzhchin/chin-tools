@@ -49,7 +49,7 @@ pub(crate) fn generate_table_schema(input: TokenStream) -> TokenStream {
 
         table_struct_fields.extend(quote! {
             #[inline]
-            pub fn #field_ident(&'a self) -> chin_sql::SqlTypedField<'a, #ty> {
+            pub fn #field_ident(&self) -> chin_sql::SqlTypedField<'a, #ty> {
                 chin_sql::SqlTypedField::new(self.alias, #field_name_str)
             }
         });
@@ -60,9 +60,9 @@ pub(crate) fn generate_table_schema(input: TokenStream) -> TokenStream {
             pub alias: &'a str
         }
 
-        impl<'a> chin_sql::SqlPlainTable<'a> for #table_struct_ident<'a> {
-                fn table_name(&self) -> &'static str {
-                    #table_name
+        impl<'a> chin_sql::SqlTable<'a> for #table_struct_ident<'a> {
+                fn table_expr(&self) -> chin_sql::SqlTableExpr<'a> {
+                    chin_sql::SqlTableExpr::Plain(#table_name)
                 }
 
                 fn alias(&self) -> &'a str {
@@ -80,10 +80,6 @@ pub(crate) fn generate_table_schema(input: TokenStream) -> TokenStream {
             // name with alias
             pub fn nwa(&self) -> String {
                 format!("{} {}", #table_name, self.alias)
-            }
-
-            pub fn all_fields(&self) -> String {
-                format!("{} *", self.alias)
             }
 
             #[inline]
@@ -354,11 +350,11 @@ fn key_func(prefix: &str, fields: &Vec<(&FieldInfo, &Field)>) -> TokenStream2 {
     let where_cond = format_ident!("{}_cond", prefix);
 
     let expanded = quote! {
-        pub fn #reader<'a>(#args) -> chin_sql::SqlBuilder<'a> {
-            chin_sql::SqlBuilder::read_all(Self::TABLE)
-            .r#where(chin_sql::Wheres::and([
+        pub fn #reader<'a>(#args) -> chin_sql::SqlReader<'a> {
+            chin_sql::SqlReader::read(chin_sql::SqlField { alias: None, inner: chin_sql::SqlFieldInner::Plain { table_alias: Self::TABLE, field_name: "*" } }, Self::TABLE)
+            .wheres(chin_sql::Wheres::and([
                 #wheres
-            ]))
+            ])).build().into()
         }
 
         pub fn #updater<'c>(#args) -> chin_sql::SqlUpdater<'c> {
