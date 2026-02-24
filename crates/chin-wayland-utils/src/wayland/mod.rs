@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use niri::NiriCompositor;
 use niri::NiriWindowWrapper;
 use niri_ipc::Output as NiriOutput;
@@ -48,9 +50,9 @@ pub trait WLWorkspaceBehaiver {
     fn is_active(&self) -> bool;
     fn is_focused(&self) -> bool;
     fn focus(&self) -> EResult;
-    fn get_id(&self) -> WLWorkspaceId;
-    fn get_name(&self) -> String;
-    fn get_monitor_id(&self) -> Option<WLMonitorId>;
+    fn get_id(&self) -> &WLWorkspaceId;
+    fn get_name<'a>(&'a self) -> Cow<'a, str>;
+    fn get_monitor_id(&self) -> Option<&WLMonitorId>;
 }
 
 pub trait WLOutputBehaiver {

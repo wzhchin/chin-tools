@@ -72,9 +72,9 @@ impl NiriCompositor {
         let mut events = vec![];
         for new in wss {
             let old = self.workspaces.get(&new.get_id());
-            if old.map(|e| *e != new).unwrap_or(true) {
+            if old.is_none_or(|e| *e != new) {
                 events.push(WLEvent::WorkspaceOverwrite(new.clone()));
-                self.workspaces.insert(new.get_id(), new);
+                self.workspaces.insert(*new.get_id(), new);
             }
         }
 
@@ -164,6 +164,7 @@ impl NiriCompositor {
                 if let Some(ws) = self.workspaces.get(&id) {
                     let changed = NiriWorkspace {
                         is_focused: focused,
+                        is_active: focused,
                         ..ws.clone()
                     };
                     wss.push(changed);

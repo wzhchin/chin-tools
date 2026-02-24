@@ -5,6 +5,7 @@ pub use niri_ipc::Output as NiriOutput;
 pub use niri_ipc::Window as NiriWindow;
 pub use niri_ipc::Workspace as NiriWorkspace;
 
+use std::borrow::Cow;
 use std::{collections::HashMap, fmt::Debug, process::Command};
 
 use serde::de::DeserializeOwned;
@@ -108,20 +109,19 @@ impl WLWorkspaceBehaiver for NiriWorkspace {
         json_output(niri_action!().args(["focus-workspace", &format!("{}", self.idx)]))
     }
 
-    fn get_id(&self) -> WLWorkspaceId {
-        self.id
+    fn get_id(&self) -> &WLWorkspaceId {
+        &self.id
     }
 
-    fn get_name(&self) -> String {
-        if self.name.is_some() {
-            self.name.as_ref().unwrap().to_owned()
-        } else {
-            self.idx.to_string()
+    fn get_name<'a>(&'a self) -> Cow<'a, str> {
+        match &self.name {
+            Some(name) => Cow::Borrowed(name),
+            None => self.idx.to_string().into(),
         }
     }
 
-    fn get_monitor_id(&self) -> Option<WLMonitorId> {
-        self.output.clone()
+    fn get_monitor_id(&self) -> Option<&WLMonitorId> {
+        self.output.as_ref()
     }
 }
 
@@ -174,7 +174,7 @@ impl WLCompositorBehavier for NiriCompositor {
         let workspaces = instance.fetch_all_workspaces()?;
 
         instance.windows = windows.into_iter().map(|e| (e.get_id(), e)).collect();
-        instance.workspaces = workspaces.into_iter().map(|e| (e.get_id(), e)).collect();
+        instance.workspaces = workspaces.into_iter().map(|e| (*e.get_id(), e)).collect();
         instance.focused_winid = awin.map(|e| e.get_id());
 
         Ok(instance)
