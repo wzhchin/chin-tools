@@ -243,6 +243,11 @@ impl<'a, T> SqlTypedField<'a, T> {
     pub fn erased(&self) -> SqlField<'a> {
         self.field.clone()
     }
+
+    #[inline]
+    pub fn v_is_null(&self) -> Wheres<'a> {
+        Wheres::is_null(self.twn())
+    }
 }
 
 impl<'a, T: 'a> SqlTypedField<'a, T>

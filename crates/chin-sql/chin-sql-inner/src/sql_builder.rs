@@ -652,10 +652,6 @@ impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
     }
 }
 
-pub struct SubQueryTable<'a> {
-    pub reader: SqlSingleReader<'a>,
-}
-
 impl<'a> From<&SqlReader<'a>> for SqlBuilder<'a> {
     fn from(value: &SqlReader<'a>) -> Self {
         match value {
