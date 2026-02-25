@@ -636,7 +636,7 @@ impl<'a> IntoSqlSeg<'a> for SqlReader<'a> {
                     values.extend(ss.values);
                 }
                 Ok(SqlSeg {
-                    seg: segs.join(" union "),
+                    seg: segs.join(" union all "),
                     values,
                 })
             }
@@ -653,7 +653,7 @@ impl<'a> From<&SqlReader<'a>> for SqlBuilder<'a> {
                 let mut union = false;
                 for fr in sql_readers {
                     if union {
-                        sql_builder = sql_builder.seg("union")
+                        sql_builder = sql_builder.seg("union all")
                     } else {
                         union = true;
                     }
