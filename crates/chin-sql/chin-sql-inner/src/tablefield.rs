@@ -4,7 +4,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::{ILikeType, SqlReader, SqlValue, Wheres, str_type::Text};
+use crate::{ILikeType, SqlReader, SqlValue, Wheres, str_type::{Text, Varchar}};
 
 pub enum SqlTableExpr<'a> {
     Plain(&'a str),
@@ -304,6 +304,12 @@ where
 }
 
 impl<'a> SqlTypedField<'a, Text> {
+    pub fn v_ilike<V: AsRef<str>>(&self, v: V, exact: ILikeType) -> Wheres<'a> {
+        Wheres::ilike(self.twn(), v.as_ref(), exact)
+    }
+}
+
+impl<'a, const LIMIT: usize> SqlTypedField<'a, Varchar<LIMIT>> {
     pub fn v_ilike<V: AsRef<str>>(&self, v: V, exact: ILikeType) -> Wheres<'a> {
         Wheres::ilike(self.twn(), v.as_ref(), exact)
     }
