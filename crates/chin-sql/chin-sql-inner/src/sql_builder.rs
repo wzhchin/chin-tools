@@ -560,14 +560,7 @@ impl<'a> From<&SqlSingleReader<'a>> for SqlBuilder<'a> {
             .fields
             .0
             .iter()
-            .map(|m| match m.alias {
-                Some(alias) => {
-                    format!("{}.{} as {}", m.table_alias(), m.field_name(), alias)
-                }
-                None => {
-                    format!("{}.{}", m.table_alias(), m.field_name())
-                }
-            })
+            .map(|m| m.to_select_field())
             .collect::<Vec<String>>()
             .join(", ");
         SqlBuilder::new()
@@ -577,7 +570,7 @@ impl<'a> From<&SqlSingleReader<'a>> for SqlBuilder<'a> {
             .merge(&value.froms)
             .r#where(value.wheres.clone())
             .transform(|this| match &value.group_by {
-                GroupBy::Plain(cows) => this.seg("order by").seg(cows.join(", ")),
+                GroupBy::Plain(cows) => this.seg("group by").seg(cows.join(", ")),
                 GroupBy::None => this,
             })
             .transform(|this| match &value.having {

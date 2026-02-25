@@ -32,11 +32,40 @@ pub struct SqlField<'a> {
     pub inner: SqlFieldInner<'a>,
 }
 
+impl<'a> SqlField<'a> {
+    pub(crate) fn to_select_field(&self) -> String {
+        let mut sb = String::new();
+        match &self.inner {
+            SqlFieldInner::Plain {
+                table_alias,
+                field_name,
+            } => {
+                sb.push_str(*table_alias);
+                sb.push('.');
+                sb.push_str(field_name);
+            }
+            SqlFieldInner::Raw { expr } => {
+                sb.push_str(*expr);
+            }
+        }
+
+        if let Some(alias) = self.alias {
+            sb.push_str(" as ");
+            sb.push_str(alias);
+        }
+
+        sb
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum SqlFieldInner<'a> {
     Plain {
         table_alias: &'a str,
         field_name: &'static str,
+    },
+    Raw {
+        expr: &'a str,
     },
 }
 
@@ -50,6 +79,7 @@ impl<'a> SqlFieldInner<'a> {
                 table_alias: alias,
                 field_name,
             },
+            SqlFieldInner::Raw { expr } => SqlFieldInner::Raw { expr },
         }
     }
 }
@@ -154,6 +184,7 @@ impl<'a> SqlFieldTrait<'a> for SqlField<'a> {
                 table_alias,
                 field_name: _,
             } => table_alias,
+            SqlFieldInner::Raw { expr: _ } => unreachable!(),
         }
     }
 
@@ -164,6 +195,7 @@ impl<'a> SqlFieldTrait<'a> for SqlField<'a> {
                 table_alias: _,
                 field_name,
             } => field_name,
+            SqlFieldInner::Raw { expr: _ } => unreachable!(),
         }
     }
 }
@@ -225,6 +257,7 @@ impl<'a, T> SqlTypedField<'a, T> {
                 table_alias: _,
                 field_name,
             } => field_name,
+            SqlFieldInner::Raw { expr: _ } => unreachable!(),
         })
     }
 

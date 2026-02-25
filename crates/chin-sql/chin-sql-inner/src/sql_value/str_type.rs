@@ -112,7 +112,12 @@ impl<const LIMIT: usize> Varchar<LIMIT> {
     }
 
     pub fn limit<S: AsRef<str>>(s: S) -> Self {
-        Self(s.as_ref()[0..LIMIT].into())
+        let s = s.as_ref();
+        if s.len() <= LIMIT {
+            Self(s.into())
+        } else {
+            Self(s[0..LIMIT].into())
+        }
     }
 }
 
