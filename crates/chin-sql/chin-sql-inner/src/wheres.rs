@@ -196,13 +196,20 @@ impl<'a> Wheres<'a> {
                     .collect();
                 if vs.is_empty() {
                     return None;
-                }
-                let op = match op {
-                    WhereConjOp::And => " and ",
-                    WhereConjOp::Or => " or ",
-                };
+                } else if vs.len() == 1 {
+                    seg.push_str(vs[0].as_str());
+                } else {
+                    let op = match op {
+                        WhereConjOp::And => " and ",
+                        WhereConjOp::Or => " or ",
+                    };
 
-                seg.push_str(vs.join(op).as_str())
+                    seg.push(' ');
+                    seg.push('(');
+                    seg.push_str(vs.join(op).as_str());
+                    seg.push(')');
+                    seg.push(' ');
+                }
             }
             Wheres::In(key, fs) => {
                 log::info!("print: {key:?}, {fs:?}");
