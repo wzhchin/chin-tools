@@ -179,6 +179,7 @@ impl<'a> Wheres<'a> {
         Self::None
     }
 
+    #[inline]
     pub fn build(self, db_type: DbType, value_type: &mut PlaceHolderType) -> Option<SqlSeg<'a>> {
         let mut seg = String::new();
         let mut values: Vec<SqlValue<'a>> = Vec::new();
@@ -211,18 +212,31 @@ impl<'a> Wheres<'a> {
                     seg.push(' ');
                 }
             }
-            Wheres::In(key, fs) => {
-                log::info!("print: {key:?}, {fs:?}");
-                seg.push_str(key.as_ref());
-                seg.push_str(" in (");
-                let vs = fs
-                    .iter()
-                    .map(|_| value_type.next_ph())
-                    .collect::<Vec<String>>();
-                seg.push_str(vs.join(",").as_str());
+            Wheres::In(key, mut fs) => {
+                log::debug!("wheres in: {key:?}, {fs:?}");
+                if fs.len() == 1 {
+                    let s = Self::Compare {
+                        key,
+                        operator: "=".into(),
+                        value: fs.remove(0),
+                    }
+                    .build(db_type, value_type);
+                    if let Some(SqlSeg { seg: s, values: v }) = s {
+                        seg.push_str(s.as_str());
+                        values.extend(v);
+                    }
+                } else {
+                    seg.push_str(key.as_ref());
+                    seg.push_str(" in (");
+                    let vs = fs
+                        .iter()
+                        .map(|_| value_type.next_ph())
+                        .collect::<Vec<String>>();
+                    seg.push_str(vs.join(",").as_str());
 
-                seg.push(')');
-                values.extend(fs)
+                    seg.push(')');
+                    values.extend(fs)
+                }
             }
             Wheres::Not(fs) => {
                 seg.push_str(" not ( ");
