@@ -1,5 +1,6 @@
 use std::{
     fmt::{Display, Formatter},
+    ops::Deref,
     sync::{
         Arc, LazyLock,
         atomic::{AtomicI64, Ordering},
@@ -160,6 +161,20 @@ pub mod from_pg {
         }
 
         accepts! {INT2, INT4, INT8}
+    }
+}
+
+impl Deref for TID {
+    type Target = i64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl TID {
+    pub fn add_micros(&self, micros: i64) -> Option<Self> {
+        self.checked_add(micros).and_then(|e| e.try_into().ok())
     }
 }
 

@@ -4,7 +4,10 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::{ILikeType, SqlReader, SqlValue, Wheres, str_type::{Text, Varchar}};
+use crate::{
+    ILikeType, SqlReader, SqlValue, Wheres,
+    str_type::{Text, Varchar},
+};
 
 pub enum SqlTableExpr<'a> {
     Plain(&'a str),
@@ -281,12 +284,21 @@ impl<'a, T> SqlTypedField<'a, T> {
     pub fn v_is_null(&self) -> Wheres<'a> {
         Wheres::is_null(self.twn())
     }
+
+    #[inline]
+    pub fn v_is_not_null(&self) -> Wheres<'a> {
+        Wheres::is_not_null(self.twn())
+    }
 }
 
 impl<'a, T: 'a> SqlTypedField<'a, T>
 where
     T: Into<SqlValue<'a>>,
 {
+    pub fn v_cmp<V: Into<T>>(&self, cmp: &'a str, v: V) -> Wheres<'a> {
+        Wheres::compare(self.twn(), cmp, v.into())
+    }
+
     pub fn v_eq<V: Into<T>>(&self, v: V) -> Wheres<'a> {
         Wheres::equal(self.twn(), v.into())
     }

@@ -152,6 +152,13 @@ impl<'a> Wheres<'a> {
         }
     }
 
+    pub fn if_when<T, F>(flag: bool, wheres: Wheres<'a>) -> Self
+    where
+        F: FnOnce(T) -> Self,
+    {
+        if flag { wheres } else { Wheres::None }
+    }
+
     pub fn not<T: Into<Wheres<'a>>>(values: T) -> Self {
         Self::Not(Box::new(values.into()))
     }

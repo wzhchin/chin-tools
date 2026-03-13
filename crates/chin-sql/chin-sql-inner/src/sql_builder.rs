@@ -458,6 +458,7 @@ pub enum SqlReader<'a> {
 }
 
 pub struct SqlSingleReader<'a> {
+    ctes: Vec<(Cow<'a, str>, SqlReader<'a>)>,
     fields: SqlFields<'a>,
     froms: Froms<'a>,
     wheres: Wheres<'a>,
@@ -482,6 +483,7 @@ impl<'a> SqlReader<'a> {
                 limit: None,
                 group_by: Default::default(),
                 having: Default::default(),
+                ctes: vec![],
             },
         }
     }
@@ -506,6 +508,7 @@ impl<'a> SqlReader<'a> {
                 having: Having::None,
                 order_by: None,
                 limit: Some(limit),
+                ctes: vec![],
             }),
             SqlReader::Single(mut sql_single_reader) => {
                 sql_single_reader.limit.replace(limit);
@@ -527,6 +530,34 @@ impl<'a> SqlReaderBuilder<'a> {
 
     pub fn order_by<T: Into<Vec<OrderBy<'a>>>>(mut self, orders: T) -> Self {
         self.reader.order_by.replace(orders.into());
+        self
+    }
+
+    pub fn cte<A: Into<Cow<'a, str>>>(mut self, alias: A, reader: SqlReader<'a>) -> Self {
+        self.reader.ctes.push((alias.into(), reader));
+        self
+    }
+
+    pub fn cte_if<A: Into<Cow<'a, str>>>(
+        mut self,
+        tag: bool,
+        alias: A,
+        reader: SqlReader<'a>,
+    ) -> Self {
+        if tag {
+            self.reader.ctes.push((alias.into(), reader));
+        }
+        self
+    }
+
+    pub fn cte_some<A: Into<Cow<'a, str>>>(
+        mut self,
+        alias: A,
+        reader: Option<SqlReader<'a>>,
+    ) -> Self {
+        if let Some(reader) = reader {
+            self.reader.ctes.push((alias.into(), reader));
+        }
         self
     }
 
