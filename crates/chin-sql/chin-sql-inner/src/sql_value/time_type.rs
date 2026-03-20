@@ -31,27 +31,7 @@ static COUNTER: LazyLock<Arc<AtomicI64>> = LazyLock::new(|| Arc::new(AtomicI64::
 
 impl Default for TID {
     fn default() -> Self {
-        loop {
-            let time = Utc::now().timestamp_millis() * 1000;
-            let current = COUNTER.load(std::sync::atomic::Ordering::SeqCst);
-            let new = if time > current {
-                time + rand::random_range(1..1000)
-            } else {
-                current + 1
-            };
-
-            if COUNTER
-                .compare_exchange(
-                    current,
-                    new,
-                    std::sync::atomic::Ordering::SeqCst,
-                    Ordering::Acquire,
-                )
-                .is_ok()
-            {
-                return Self(new);
-            }
-        }
+        Self::never()
     }
 }
 
@@ -116,6 +96,31 @@ impl TID {
     #[inline]
     pub fn never() -> Self {
         Self(TID_NEVER)
+    }
+
+    #[inline]
+    pub fn now() -> Self {
+        loop {
+            let time = Utc::now().timestamp_millis() * 1000;
+            let current = COUNTER.load(std::sync::atomic::Ordering::SeqCst);
+            let new = if time > current {
+                time + rand::random_range(1..1000)
+            } else {
+                current + 1
+            };
+
+            if COUNTER
+                .compare_exchange(
+                    current,
+                    new,
+                    std::sync::atomic::Ordering::SeqCst,
+                    Ordering::Acquire,
+                )
+                .is_ok()
+            {
+                return Self(new);
+            }
+        }
     }
 }
 
@@ -195,7 +200,7 @@ mod tests {
     #[test]
     fn test_generate() {
         for _ in 1..10000 {
-            let c = TID::default();
+            let c = TID::now();
             if c.as_num() % 500 == 0 {
                 print!("{c}, ");
             }
