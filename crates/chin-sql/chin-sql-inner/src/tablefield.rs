@@ -48,7 +48,7 @@ impl<'a> SqlField<'a> {
                 sb.push_str(field_name);
             }
             SqlFieldInner::Raw { expr } => {
-                sb.push_str(*expr);
+                sb.push_str(&expr);
             }
         }
 
@@ -68,7 +68,7 @@ pub enum SqlFieldInner<'a> {
         field_name: &'static str,
     },
     Raw {
-        expr: &'a str,
+        expr: Cow<'a, str>,
     },
 }
 

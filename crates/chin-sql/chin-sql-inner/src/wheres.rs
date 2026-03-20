@@ -152,10 +152,7 @@ impl<'a> Wheres<'a> {
         }
     }
 
-    pub fn if_when<T, F>(flag: bool, wheres: Wheres<'a>) -> Self
-    where
-        F: FnOnce(T) -> Self,
-    {
+    pub fn if_when(flag: bool, wheres: Wheres<'a>) -> Self {
         if flag { wheres } else { Wheres::None }
     }
 

@@ -266,10 +266,10 @@ pub enum JoinType {
 }
 
 pub struct JoinCond<'a> {
-    l_table: &'a str,
-    l_field: &'a str,
-    r_table: &'a str,
-    r_field: &'a str,
+    pub l_table: &'a str,
+    pub l_field: &'a str,
+    pub r_table: &'a str,
+    pub r_field: &'a str,
 }
 
 impl<'a, T> From<(SqlTypedField<'a, T>, SqlTypedField<'a, T>)> for JoinCond<'a> {
