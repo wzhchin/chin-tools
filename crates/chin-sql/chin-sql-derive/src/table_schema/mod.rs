@@ -143,7 +143,7 @@ fn generate_inner(
             chin_sql::LogicFieldType::Bool => quote! { chin_sql::LogicFieldType::Bool },
             chin_sql::LogicFieldType::I8 => quote! { chin_sql::LogicFieldType::I8 },
             chin_sql::LogicFieldType::I16 => quote! { chin_sql::LogicFieldType::I16 },
-            chin_sql::LogicFieldType::I32 => quote! { chin_sql::LogicFieldType::I3 },
+            chin_sql::LogicFieldType::I32 => quote! { chin_sql::LogicFieldType::I32 },
             chin_sql::LogicFieldType::I64 => quote! { chin_sql::LogicFieldType::I64 },
             chin_sql::LogicFieldType::F64 => quote! { chin_sql::LogicFieldType::F64 },
             chin_sql::LogicFieldType::Varchar(c) => {
