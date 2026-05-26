@@ -20,7 +20,7 @@ bytes = "1.0"
 
 log = { workspace = true }
 serde = { workspace = true }
-rand = {default-features = false, version =  "0.9.1", features = ["small_rng"]}
+rand = {default-features = false, version =  "0.9.1", features = ["small_rng", "thread_rng"]}
 
 [features]
 postgres = ["postgres-types"]
