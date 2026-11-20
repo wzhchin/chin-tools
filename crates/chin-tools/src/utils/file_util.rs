@@ -4,7 +4,8 @@ use tokio::{
 };
 use tokio_util::io::ReaderStream;
 
-use crate::wrapper::anyhow::AResult;
+use crate::anyhow::AResult;
+use crate::anyhow::EResult;
 
 use futures::{Stream, TryStreamExt};
 
@@ -38,7 +39,7 @@ pub async fn file_to_stream_async(filepath: &impl AsRef<Path>) -> AResult<Reader
 
     let file = match tokio::fs::File::open(&filepath).await {
         Ok(file) => file,
-        Err(err) => return log_and_err!("Read file error: {}", err),
+        Err(err) => return crate::log_and_err!("Read file error: {}", err),
     };
 
     Ok(ReaderStream::new(file))
